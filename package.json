@@ -1,6 +1,6 @@
 {
   "name": "easy-mouse-inverter",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "easy switch mouse scroll direction on windows 10",
   "main": "index.js",
   "repository": "git@github.com:shroomlife/easy-mouse-inverter.git",
@@ -12,6 +12,6 @@
   },
   "scripts": {
     "start": "node index",
-    "pack": "pkg index.js -t win"
+    "pkg": "pkg index.js -t win"
   }
 }
