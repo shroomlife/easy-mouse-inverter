@@ -9,5 +9,9 @@
   "private": false,
   "dependencies": {
     "regedit": "^3.0.3"
+  },
+  "scripts": {
+    "start": "node index",
+    "pack": "pkg index.js -t win"
   }
 }
