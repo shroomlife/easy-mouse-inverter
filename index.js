@@ -1,69 +1,116 @@
-const regedit = require('regedit');
+const regedit = require('regedit').promisified;
 
-const keys = ['HKLM', 'SYSTEM', 'CurrentControlSet', 'Enum', 'HID'];
+const HID_ROOT = 'HKLM\\SYSTEM\\CurrentControlSet\\Enum\\HID';
 
-const keyString = keys.join('\\');
+const MODES = {
+  invert: 1,
+  normal: 0,
+};
 
-let changedDevices = 0;
+function parseMode(argv) {
+  const flag = argv.find((a) => a.startsWith('--'));
+  if (!flag) return 'invert';
+  const mode = flag.replace(/^--/, '');
+  if (mode === 'status' || mode === 'toggle' || mode in MODES) return mode;
+  console.error(`Unknown option: ${flag}`);
+  console.error('Usage: easy-mouse-inverter [--invert|--normal|--toggle|--status]');
+  process.exit(2);
+}
 
-regedit.list(keyString, (err, result) => {
-  const foundKeys = result[keyString].keys;
+async function listOne(key) {
+  const result = await regedit.list(key);
+  return result[key];
+}
 
-  foundKeys.forEach((keyIndexName) => {
-    let childKeys = keys.slice(0);
-    childKeys.push(keyIndexName);
+async function findMice() {
+  const root = await listOne(HID_ROOT);
+  if (!root.exists || root.keys.length === 0) return [];
 
-    let childKeyString = childKeys.join('\\');
+  const hidKeys = root.keys.map((k) => `${HID_ROOT}\\${k}`);
+  const hidResult = await regedit.list(hidKeys);
 
-    regedit.list(childKeyString, (err, result) => {
-      const keyCheckItemName = result[childKeyString].keys.shift();
+  const instanceKeys = [];
+  for (const k of hidKeys) {
+    const entry = hidResult[k];
+    if (!entry || !entry.exists) continue;
+    for (const inst of entry.keys) instanceKeys.push(`${k}\\${inst}`);
+  }
+  if (instanceKeys.length === 0) return [];
 
-      let checkKeys = childKeys.slice(0);
-      checkKeys.push(keyCheckItemName);
-      let checkKeyString = checkKeys.join('\\');
+  const paramKeys = instanceKeys.map((k) => `${k}\\Device Parameters`);
+  const paramResult = await regedit.list(paramKeys);
 
-      regedit.list(checkKeyString, (err, result) => {
-        const checkKeyChildFirstKey = result[checkKeyString].keys.shift();
-        if (
-          typeof result[checkKeyString] !== 'undefined' &&
-          typeof result[checkKeyString].values === 'object'
-        ) {
-          const checkData = result[checkKeyString].values;
+  const mice = [];
+  for (const k of paramKeys) {
+    const entry = paramResult[k];
+    if (!entry || !entry.exists) continue;
+    const flip = entry.values && entry.values.FlipFlopWheel;
+    if (flip && flip.type === 'REG_DWORD') {
+      mice.push({ path: k, current: Number(flip.value) });
+    }
+  }
+  return mice;
+}
 
-          if (typeof checkData.Mfg !== 'undefined' && typeof checkData.Mfg.value !== 'undefined') {
-            const MfgCheckValue = String(checkData.Mfg.value);
+function label(value) {
+  return value === 1 ? 'inverted' : 'normal';
+}
 
-            if (MfgCheckValue.indexOf('mouse') !== -1) {
-              let deviceParameterKeys = checkKeys.slice(0);
-              deviceParameterKeys.push(checkKeyChildFirstKey);
-              let deviceParameterKeysString = deviceParameterKeys.join('\\');
+async function main() {
+  const mode = parseMode(process.argv.slice(2));
 
-              regedit.list(deviceParameterKeysString, (err, result) => {
-                const deviceParameters = result[deviceParameterKeysString].values;
+  console.log('Scanning HID devices for mice with a scroll wheel...');
+  let mice;
+  try {
+    mice = await findMice();
+  } catch (err) {
+    console.error('Failed to read the registry:', err.message || err);
+    console.error('Make sure you run this terminal as Administrator.');
+    process.exit(1);
+  }
 
-                if (typeof deviceParameters.FlipFlopWheel !== 'undefined') {
-                  const currentFlipFlopValue = deviceParameters.FlipFlopWheel;
+  if (mice.length === 0) {
+    console.log('No mouse devices with FlipFlopWheel found.');
+    return;
+  }
 
-                  if (currentFlipFlopValue.type === 'REG_DWORD' && currentFlipFlopValue.value === 0) {
-                    let putObject = {};
-                    putObject[deviceParameterKeysString] = {
-                      FlipFlopWheel: {
-                        value: 1,
-                        type: 'REG_DWORD'
-                      }
-                    };
+  console.log(`Found ${mice.length} mouse device(s).`);
 
-                    regedit.putValue(putObject, (err, result) => {
-                      changedDevices++;
-                      console.log('ADDED FIX TO', childKeyString)
-                    });
-                  }
-                }
-              });
-            }
-          }
-        }
+  if (mode === 'status') {
+    for (const m of mice) console.log(`  [${label(m.current)}] ${m.path}`);
+    return;
+  }
+
+  let changed = 0;
+  let skipped = 0;
+  for (const m of mice) {
+    const target = mode === 'toggle' ? (m.current === 1 ? 0 : 1) : MODES[mode];
+    if (m.current === target) {
+      skipped++;
+      console.log(`  [skip] ${m.path} already ${label(target)}`);
+      continue;
+    }
+    try {
+      await regedit.putValue({
+        [m.path]: {
+          FlipFlopWheel: { value: target, type: 'REG_DWORD' },
+        },
       });
-    });
-  });
+      changed++;
+      console.log(`  [set ${label(target)}] ${m.path}`);
+    } catch (err) {
+      console.error(`  [fail] ${m.path}: ${err.message || err}`);
+    }
+  }
+
+  console.log('');
+  console.log(`Done. Updated ${changed}, already correct ${skipped}.`);
+  if (changed > 0) {
+    console.log('Unplug and replug your mouse (or reboot) for the change to take effect.');
+  }
+}
+
+main().catch((err) => {
+  console.error('Unexpected error:', err);
+  process.exit(1);
 });
