@@ -12,8 +12,18 @@ no background process, no tray icon — just a one-shot registry edit.
 
 On macOS and on every touchpad, pushing your fingers up moves the page up.
 Windows still defaults to the opposite — push the wheel up, page goes down.
-Windows has a per-device setting for this but no global UI to flip it for
-every mouse at once. This script does that in three seconds.
+
+Since **Windows 11 24H2** there is a native toggle under
+*Settings → Bluetooth & devices → Mouse → Scrolling direction*, so on
+recent builds you may not need this tool at all. It is still useful when:
+
+- you are on Windows 10 or an older Windows 11 build, or
+- you have several mice and want to flip all of them at once without
+  clicking through the Settings app.
+
+Either way, the underlying mechanism is the same `FlipFlopWheel` registry
+flag that Microsoft's own input stack reads — see
+[Microsoft Q&A: Reverse Mouse Wheel scroll](https://learn.microsoft.com/en-us/answers/questions/3809133/reverse-mouse-wheel-scroll).
 
 ## Requirements
 
@@ -70,7 +80,14 @@ node index.js --status
 4. Write `1` to invert, `0` for normal, or flip it for toggle.
 
 After the script finishes, **unplug and replug the mouse** — or reboot — for
-Windows to pick up the new setting.
+Windows to pick up the new setting. A replug is enough in most cases; only a
+reboot is needed if the device cannot be physically reconnected.
+
+This is the same approach that the well-known
+[PowerShell one-liner](https://gist.github.com/arbourd/f200bcdf79913d2189cf125c30da3eb8)
+uses (`Get-ItemProperty HKLM:\SYSTEM\CurrentControlSet\Enum\HID\*\*\Device Parameters`
+filtered by `FlipFlopWheel`) — this tool just wraps it with safer error
+handling and a nicer CLI.
 
 ## Troubleshooting
 
@@ -83,6 +100,9 @@ Windows to pick up the new setting.
   vendor app instead.
 - **The change doesn't apply** — Windows caches the setting until the device
   is re-enumerated. Replug the mouse or reboot.
+- **Windows 11 24H2 or newer** — the native *Scrolling direction* setting in
+  the Settings app may overwrite this registry value when toggled. If you use
+  this tool, leave the GUI option at its default afterwards.
 
 ## License
 
