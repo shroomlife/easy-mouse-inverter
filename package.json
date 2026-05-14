@@ -1,17 +1,29 @@
 {
   "name": "easy-mouse-inverter",
-  "version": "1.0.0",
-  "description": "easy switch mouse scroll direction on windows 10",
+  "version": "2.0.0",
+  "description": "Invert mouse scroll wheel direction on Windows 10 and 11 by toggling the FlipFlopWheel registry flag.",
   "main": "index.js",
+  "bin": {
+    "easy-mouse-inverter": "index.js"
+  },
   "repository": "git@github.com:shroomlife/easy-mouse-inverter.git",
   "author": "shroomlife",
   "license": "Apache-2.0",
   "private": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "os": [
+    "win32"
+  ],
   "dependencies": {
-    "regedit": "^3.0.3"
+    "regedit": "^5.1.4"
   },
   "scripts": {
-    "start": "node index",
-    "pkg": "pkg index.js -t win"
+    "start": "node index.js",
+    "invert": "node index.js --invert",
+    "normal": "node index.js --normal",
+    "toggle": "node index.js --toggle",
+    "status": "node index.js --status"
   }
 }
