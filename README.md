@@ -71,6 +71,23 @@ node index.js --toggle
 node index.js --status
 ```
 
+## Building the executable
+
+The prebuilt `.exe` on the Releases page is produced with
+[`@yao-pkg/pkg`](https://github.com/yao-pkg/pkg) (the maintained successor of
+the archived `vercel/pkg`). To build it yourself:
+
+```powershell
+npm install
+npm run build
+# -> dist/easy-mouse-inverter.exe
+```
+
+`regedit` ships small VBScript helper files that Windows Script Host runs
+behind the scenes. They are bundled into the `.exe` as assets and extracted
+to a temp folder at runtime, so the single file is fully self-contained — no
+extra files to ship.
+
 ## How it works
 
 1. Enumerate `HKLM\SYSTEM\CurrentControlSet\Enum\HID`.

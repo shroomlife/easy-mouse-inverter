@@ -16,14 +16,23 @@
   "os": [
     "win32"
   ],
-  "dependencies": {
-    "regedit": "^5.1.4"
-  },
   "scripts": {
     "start": "node index.js",
     "invert": "node index.js --invert",
     "normal": "node index.js --normal",
     "toggle": "node index.js --toggle",
-    "status": "node index.js --status"
+    "status": "node index.js --status",
+    "build": "pkg . --targets node22-win-x64 --output dist/easy-mouse-inverter.exe"
+  },
+  "pkg": {
+    "assets": [
+      "node_modules/regedit/vbs/**/*"
+    ]
+  },
+  "dependencies": {
+    "regedit": "^5.1.4"
+  },
+  "devDependencies": {
+    "@yao-pkg/pkg": "^6.19.0"
   }
 }
